@@ -195,6 +195,7 @@ In HTTP Settings, I turned on Secure inputs and Secure outputs so the token is n
 - 5.4 Increment variable
   Purpose: adds 1 to record_id for the next iteration.
 
-For cleaner runs, place Compose + HTTP inside a Try scope, add a Catch scope that logs row data and the error body, and append those to an array variable. Finish with a summary.
+# Considerations for production enviroment:
 
-Store the token in an environment variable or a secure reference rather than hard-coding.
+- 1.Implement a Try/Catch block inside the loop.
+- 2.Store the token in an environment variable.
