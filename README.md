@@ -1,14 +1,4 @@
-Conclusion taken after Microsoft Power BI Report stage
-
-CKAN and the Women’s Support Services API
-The Queensland Government Open Data Portal is powered by CKAN, a data management platform.
-
-The Women’s Support Services dataset is hosted in CKAN’s DataStore, which enables structured querying via RESTful APIs.
-
-There are two main interfaces to access the data:
-
-1. FileStore: for downloading static CSV files.
-2. DataStore: for dynamic querying via the API (the one I am using).
+# Microsoft Power BI Report - desktop app
 
 Querying CKAN DataStore in Power BI
 I have decided that the best way is to use datastore_search_sql for these reasons:
@@ -19,7 +9,7 @@ I have decided that the best way is to use datastore_search_sql for these reason
 4. I have used Uri.EscapeDataString to make the syntax easier, avoiding the use of special characters
 5. Map \_id (CKAN) to record_id(REDCap) because RECap uses record_id as primary key
 
-Query used in Power Query
+Query used in Power Query:
 let
 Source = Json.Document(
 Web.Contents(
@@ -35,10 +25,11 @@ Renamed = Table.RenameColumns(ToTable, {{"_id", "record_id"}})
 in
 Renamed
 
-For the phone input in the form, I consider some scenarios:
+# REDCap Data Collection Instrument
 
-- Variations on user input: user inputs space within the phone number, dashes or parentheses which makes harder to validate and perform calcularion equation (to transform the number to international Australian phone number format)
-- Validate phone input to only allow exactly 10 chars: to achieve this I had to use number validation minimum 10 in addition to @CHARLIMIT=10. In this way the user is only allowed to input a number of 10 digits without spaces, dashes or parentheses. However, REDCap removes the starting 0 behind the scenes which has to be handled in the calculation equation below:
+## @HIDDEN field logic
+
+The logic below transforms the phone number to Australian Phone Number Format.
 
 phone_1 = 712345678
 if(
@@ -49,4 +40,161 @@ concat("+617", right([phone_1], length([phone_1]) - 1)), #IF TRUE mutates the ph
 concat("0", [phone_1]) #IF FALSE: appends "0" to the begining of phone_1 variable = 0712345678
 )
 
-- I can conclude that REDCap treats numbers/integers as strings behind the scenes, since I am allowed to append a string ("07") to phone_1 variable that has a number validation. Or the concat() method converts the number to a string before perming the operation.
+## Form field validations
+
+At first, I have implemented validation for some of the form fields. However, since I am injecting Women’s Support Services dataset into REDCap DB, the field validation caused problem because some data like Phone 2 contain not only numbers but also string. At the end I decided to remove all form field validation. In a situation where the data is injected from the actual form, form validations are necessary.
+
+# Microsoft Power Automate Solution - https://make.powerautomate.com/
+
+## Use Power Automate Solution, create a new flow with the "Run a query against a dataset" action to retrieve
+
+## Create a Custom Connector using C# to receive a JSON payload containing a phone number and remove all
+
+non-digit characters using regular expression (Regex).
+
+## Use the Custom Connector in the flow to format the phone number from the query response.
+
+## With HTTP action, post the transformed data to REDCap using the "Import Records" API method.
+
+## Power Atomate Flow
+
+- 1.Trigger - Manually trigger a flow
+  Purpose: run-on-demand while you iterate.
+  Considerations: replace (for production) with a Recurrence, a Power Apps button, or a Dataverse trigger. - explain
+
+- 2.Data fetch - run a query against a dataset (Power BI)
+  Purpose: execute the DAX query you validated in Power BI Desktop, and return only the columns needed.
+  Key outputs:
+
+DAX query
+
+EVALUATE
+SELECTCOLUMNS(
+FILTER(
+'WSSQuery',
+CONTAINSSTRING( LOWER('WSSQuery'[Name]), "sunshine coast" )
+),
+"Name", 'WSSQuery'[Name],
+"Address 1", 'WSSQuery'[Address 1],
+"Address 2", 'WSSQuery'[Address 2],
+"Suburb", 'WSSQuery'[Suburb],
+"Postcode", 'WSSQuery'[Postcode],
+"State", 'WSSQuery'[State],
+"Phone 1", 'WSSQuery'[Phone 1],
+"Phone 2", 'WSSQuery'[Phone 2],
+"Website", 'WSSQuery'[Website],
+"Hours 1", 'WSSQuery'[Hours 1],
+"Category", 'WSSQuery'[Category],
+"Keywords", 'WSSQuery'[Keywords],
+"Services", 'WSSQuery'[Services]
+)
+
+- 3.Parse JSON
+  Purpose: give the flow a typed schema for each row so you can pick fields by name (e.g. [Name], [Suburb]).
+
+Schema
+{
+"type": "object",
+"properties": {
+"[Name]": {
+"type": "string"
+},
+"[Suburb]": {
+"type": "string"
+},
+"[Postcode]": {
+"type": "string"
+},
+"[State]": {
+"type": "string"
+},
+"[Phone 1]": {
+"type": "string"
+},
+"[Website]": {
+"type": "string"
+},
+"[Hours 1]": {
+"type": "string"
+},
+"[Category]": {
+"type": "string"
+},
+"[Keywords]": {
+"type": "string"
+},
+"[Services]": {
+"type": "string"
+}
+}
+}
+
+- 4.Initialize variable (record_id)
+  Purpose: provide a sequential ID when REDCap auto-numbering isn’t used.
+
+At the end of the "Apply nto each" loop, the variable is incremented.
+
+- 5. Apply to each (rows from Parse JSON)
+- 5.1 Clean phone number (custom connector)
+  Purpose: normalises raw phone input to the format the REDCap project expects: Autralian international phone number.
+
+- 5.2 Compose (build one REDCap record)
+  Purpose: Creates a single JSON object with field names that match the REDCap data dictionary. All mapping and transformation is done in one place. Then, the HTTP step simply sends it.
+
+{
+"record_id": "@{variables('record_id')}",
+"name": "@{items('Apply_to_each')?['[Name]']}",
+"address_1": "@{coalesce(items('Apply_to_each')?['[Address 1]'], '')}",
+"address_2": "@{coalesce(items('Apply_to_each')?['[Address 2]'], '')}",
+"suburb": "@{coalesce(items('Apply_to_each')?['[Suburb]'], '')}",
+"postcode": "@{coalesce(items('Apply_to_each')?['[Postcode]'], '')}",
+"state": "@{coalesce(items('Apply_to_each')?['[State]'], '')}",
+"phone_1": "@{outputs('clean_phone_number')?['body/clean']}",
+"phone_2": "@{coalesce(items('Apply_to_each')?['[Phone 2]'], '')}",
+"website": "@{coalesce(items('Apply_to_each')?['[Website]'], '')}",
+"hours_1": "@{coalesce(items('Apply_to_each')?['[Hours 1]'], '')}",
+"category": "@{coalesce(items('Apply_to_each')?['[Category]'], '')}",
+"keywords": "@{coalesce(items('Apply_to_each')?['[Keywords]'], '')}",
+"services": "@{coalesce(items('Apply_to_each')?['[Services]'], '')}"
+}
+
+- 5.3 HTTP (Import Records)
+  Purpose: Posts the record to REDCap’s Import Records API.
+
+Setup
+
+Method: POST
+
+Headers:
+Content-Type: application/x-www-form-urlencoded
+Accept: application/json
+
+Body:
+concat(
+'token=REDCAP_PROJECT_TOKEN',
+'&content=record',
+'&format=json',
+'&type=flat',
+'&returnContent=ids',
+'&data=',
+uriComponent(concat('[', string(outputs('Compose')), ']'))
+)
+
+### concat('[', string(outputs('Compose')), ']')
+
+I used this method to wraps your single object as an array.
+
+### uriComponent(...)
+
+I used this to URL-encodes the JSON so quotes and newlines cannot corrupt the form body.
+
+### Security
+
+In HTTP Settings, I turned on Secure inputs and Secure outputs so the token is not exposed.
+
+- 5.4 Increment variable
+  Purpose: adds 1 to record_id for the next iteration.
+
+For cleaner runs, place Compose + HTTP inside a Try scope, add a Catch scope that logs row data and the error body, and append those to an array variable. Finish with a summary.
+
+Store the token in an environment variable or a secure reference rather than hard-coding.
