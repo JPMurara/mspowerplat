@@ -1,7 +1,12 @@
+This is the conciese system level report for the tecnical tasks framed around the end-to-end goal in moving filtered records from an open CKAN dataset into REDCap via a workflow that applies validation and phone normalisation, with Power BI as the data transformation and Power Automate to orchestrate the process.
+
+This division of responsibilities limits coupling: Power BI get the data, shapes and filter it, REDCap handles DB schema and validation, Power Automate handles orchestration and trigger actions (side effects). Tradeoff: more components to manage, but the benefit is better tracking, reuse, and using the right tool for each task.
+
 # Microsoft Power BI Report - desktop app
 
-Querying CKAN DataStore in Power BI
-I have decided that the best way is to use datastore_search_sql for these reasons:
+Purpose: create a custom table for data acquisition and filtering (Power Query + CKAN API). This creates a stable, queryable dataset for automation. Also, in this step I clean and filter at the source, so no unnecesary rows are processed.
+
+For querying CKAN DataStore in Power BI, I have decided that the best way is to use datastore_search_sql for these reasons:
 
 1. Precise filtering on specific fields
 2. Server side filtering: reduces payload and improves performance
@@ -27,6 +32,8 @@ Renamed
 
 # REDCap Data Collection Instrument
 
+Purpose: data collection structure and constraints live in REDCap using instrument, validations, calculated field, action tags, API enabled.
+
 ## @HIDDEN field logic
 
 The logic below transforms the phone number to Australian Phone Number Format.
@@ -42,19 +49,19 @@ concat("0", [phone_1]) #IF FALSE: appends "0" to the begining of phone_1 variabl
 
 ## Form field validations
 
-At first, I have implemented validation for some of the form fields. However, since I am injecting Women’s Support Services dataset into REDCap DB, the field validation caused problem because some data like Phone 2 contain not only numbers but also string. At the end I decided to remove all form field validation. In a situation where the data is injected from the actual form, form validations are necessary.
+At first, I have implemented validation for some of the form fields. However, since I am injecting Women’s Support Services dataset into REDCap DB, the field validation caused problem because some data like Phone 2 contain not only numbers but also string. Since it is not a production application, I decided to remove all form field validation. For production environment and in a scenario where the data is injected from the actual form, some form validations and normalisation are necessary.
 
 # Microsoft Power Automate Solution - https://make.powerautomate.com/
 
-## Use Power Automate Solution, create a new flow with the "Run a query against a dataset" action to retrieve
+Purpose: data movement and remediation run in Power Automate (DAX query against the dataset, phone cleanup via a custom connector, HTTP import to REDCap).
 
-## Create a Custom Connector using C# to receive a JSON payload containing a phone number and remove all
+## Custom Connector for phone number cleanup
 
-non-digit characters using regular expression (Regex).
-
-## Use the Custom Connector in the flow to format the phone number from the query response.
+Reusable script that removes non-digit characters from a phone number using regex, so it matches what REDCap expects.
 
 ## With HTTP action, post the transformed data to REDCap using the "Import Records" API method.
+
+Sends the cleaned, validated data to the REDCap API.
 
 ## Power Atomate Flow
 
