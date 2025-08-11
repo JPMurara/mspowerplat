@@ -1,3 +1,5 @@
+# Overview
+
 This is the conciese system level report for the tecnical tasks framed around the end-to-end goal in moving filtered records from an open CKAN dataset into REDCap via a workflow that applies validation and phone normalisation, with Power BI as the data transformation and Power Automate to orchestrate the process.
 
 This division of responsibilities limits coupling: Power BI get the data, shapes and filter it, REDCap handles DB schema and validation, Power Automate handles orchestration and trigger actions (side effects). Tradeoff: more components to manage, but the benefit is better tracking, reuse, and using the right tool for each task.
@@ -14,7 +16,8 @@ For querying CKAN DataStore in Power BI, I have decided that the best way is to 
 4. I have used Uri.EscapeDataString to make the syntax easier, avoiding the use of special characters
 5. Map \_id (CKAN) to record_id(REDCap) because RECap uses record_id as primary key
 
-Query used in Power Query:
+## Query used in Power Query
+
 let
 Source = Json.Document(
 Web.Contents(
@@ -70,10 +73,8 @@ Sends the cleaned, validated data to the REDCap API.
   Considerations: replace (for production) with a Recurrence, a Power Apps button, or a Dataverse trigger. - explain
 
 - 2.Data fetch - run a query against a dataset (Power BI)
-  Purpose: execute the DAX query you validated in Power BI Desktop, and return only the columns needed.
+  Purpose: execute the DAX query (below) you validated in Power BI Desktop, and return only the columns needed.
   Key outputs:
-
-DAX query
 
 EVALUATE
 SELECTCOLUMNS(
@@ -166,9 +167,7 @@ At the end of the "Apply nto each" loop, the variable is incremented.
 }
 
 - 5.3 HTTP (Import Records)
-  Purpose: Posts the record to REDCap’s Import Records API.
-
-Setup
+  Purpose: Posts the record to REDCap’s Import Records API (setup below).
 
 Method: POST
 
