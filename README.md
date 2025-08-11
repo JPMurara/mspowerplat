@@ -43,12 +43,16 @@ The logic below transforms the phone number to Australian Phone Number Format.
 
 phone_1 = 712345678
 if(
-left(concat("0", [phone_1]), 2) = "07", #Appends 0 to be beging of the phone number (as per issue mentioned above) and compares the 2 leftmost char to the "07" string.
-concat("+617", right([phone_1], length([phone_1]) - 1)), #IF TRUE mutates the phone_1 to international Australian phone number format:
-#1. takes the phone_1 length subtracted 1 and returns the remaining char from the right = 12345678
-#3. append "+617" to the left of the "12345678" = +61712345678
-concat("0", [phone_1]) #IF FALSE: appends "0" to the begining of phone_1 variable = 0712345678
+left(concat("0", [phone_1]), 2) = "07",
+concat("+617", right([phone_1], length([phone_1]) - 1)),
+concat("0", [phone_1])
 )
+
+1.  Appends 0 to be beging of the phone number (as per issue mentioned above) and compares the 2 leftmost char to the "07" string.
+2.  IF TRUE mutates the phone_1 to international Australian phone number format:
+    2.1 takes the phone_1 length subtracted 1 and returns the remaining char from the right = 12345678
+    2.2 append "+617" to the left of the "12345678" = +61712345678
+3.  FALSE: appends "0" to the begining of phone_1 variable = 0712345678
 
 ## Form field validations
 
